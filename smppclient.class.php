@@ -278,7 +278,7 @@ class SmppClient
 	 * @param string $validityPeriod (optional)
 	 * @return string message id
 	 */
-	public function sendSMS(boolean $isCaring, $spClass, $spService, SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
+	public function sendSMS($isCaring, $spClass, $spService, SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		$msg_length = strlen($message);
 
