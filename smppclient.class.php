@@ -378,7 +378,7 @@ class SmppClient
 			$destination->npi,
 			$destination->value,
 			// payer
-			0,0,NULL,
+			1,1,NULL,
 			$sp_class,
 			$sp_service,
 			$esmClass,
