@@ -278,7 +278,7 @@ class SmppClient
 	 * @param string $validityPeriod (optional)
 	 * @return string message id
 	 */
-	public function sendSMS(bool $isCaring, SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
+	public function sendSMS(bool $isCaring, $spClass, $spService, SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		$msg_length = strlen($message);
 
@@ -338,9 +338,9 @@ class SmppClient
 		}
 
 		if ($isCaring) {
-			return $this->submit_sm($from, $to, $short_message, $tags, $dataCoding);
+			return $this->submit_sm($spClass, $spService, $from, $to, $short_message, $tags, $dataCoding);
 		} else {
-			return $this->submit_sm_caring($from, $to, $short_message, $tags, $dataCoding);
+			return $this->submit_sm_caring($spService, $from, $to, $short_message, $tags, $dataCoding);
 		}
 	}
 
@@ -406,7 +406,7 @@ class SmppClient
 		return $body['msgid'];
 	}
 
-	protected function submit_sm_caring($sp_class, $sp_service,SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null, $esmClass=null)
+	protected function submit_sm_caring($sp_service,SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null, $esmClass=null)
 	{
 		if (is_null($esmClass)) $esmClass = self::$sms_esm_class;
 
@@ -859,8 +859,8 @@ class SMPP
 	const BIND_TRANSMITTER_RESP = 0x80000002;
 	const QUERY_SM = 0x00000003;
 	const QUERY_SM_RESP = 0x80000003;
-	const SUBMIT_SM = 0x00000004;
-	const SUBMIT_SM_RESP = 0x80000004;
+	//const SUBMIT_SM = 0x00000004;
+	//const SUBMIT_SM_RESP = 0x80000004;
 	const DELIVER_SM = 0x00000005;
 	const DELIVER_SM_RESP = 0x80000005;
 	const UNBIND = 0x00000006;
