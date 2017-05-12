@@ -315,12 +315,12 @@ class SmppClient
 		if ($doCsms) {
 			if (self::$csms_method == SmppClient::CSMS_PAYLOAD) {
 				$payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
-				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+				return $this->submit_sm($spClass, $spService, $from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
 			} else if (self::$csms_method == SmppClient::CSMS_8BIT_UDH) {
 				$seqnum = 1;
 				foreach ($parts as $part) {
 					$udh = pack('cccccc',5,0,3,substr($csmsReference,1,1),count($parts),$seqnum);
-					$res = $this->submit_sm($from, $to, $udh.$part, $tags, $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod, (SmppClient::$sms_esm_class|0x40));
+					$res = $this->submit_sm($spClass, $spService, $from, $to, $udh.$part, $tags, $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod, (SmppClient::$sms_esm_class|0x40));
 					$seqnum++;
 				}
 				return $res;
@@ -330,7 +330,7 @@ class SmppClient
 				$seqnum = 1;
 				foreach ($parts as $part) {
 					$sartags = array($sar_msg_ref_num, $sar_total_segments, new SmppTag(SmppTag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c'));
-					$res = $this->submit_sm($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+					$res = $this->submit_sm($spClass, $spService, $from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
 					$seqnum++;
 				}
 				return $res;
@@ -338,9 +338,9 @@ class SmppClient
 		}
 
 		if ($isCaring) {
-			return $this->submit_sm($spClass, $spService, $from, $to, $short_message, $tags, $dataCoding);
+			return $this->submit_sm_caring($from, $to, $short_message, $tags, $dataCoding);
 		} else {
-			return $this->submit_sm_caring($spService, $from, $to, $short_message, $tags, $dataCoding);
+			return $this->submit_sm($spClass, $spService, $from, $to, $short_message, $tags, $dataCoding);
 		}
 	}
 
@@ -369,7 +369,7 @@ class SmppClient
 			'cca'. //payer
 			'a'.(strlen($sp_class)+1). // sp_class
 			'a'.(strlen($sp_service)+1). // sp_service
-			'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
+			'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'cccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
 			self::$sms_service_type,
 			$source->ton,
 			$source->npi,
@@ -390,6 +390,7 @@ class SmppClient
 			self::$sms_replace_if_present_flag,
 			$dataCoding,
 			self::$sms_sm_default_msg_id,
+			1,
 			strlen($short_message),//sm_length
 			$short_message//short_message
 		);
@@ -402,17 +403,18 @@ class SmppClient
 		}
 
 		$response=$this->sendCommand(SMPP::SUBMIT_SM,$pdu);
+		print_r($response);
 		$body = unpack("a*msgid",$response->body);
 		return $body['msgid'];
 	}
 
-	protected function submit_sm_caring($sp_service,SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null, $esmClass=null)
+	protected function submit_sm_caring(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null, $esmClass=null)
 	{
 		if (is_null($esmClass)) $esmClass = self::$sms_esm_class;
 
 		// Construct PDU with mandatory fields
 		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).
-			'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
+			'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.strlen($short_message),
 			self::$sms_service_type,
 			$source->ton,
 			$source->npi,
@@ -440,7 +442,7 @@ class SmppClient
 			}
 		}
 
-		$response=$this->sendCommand(SMPP::SUBMIT_SM,$pdu);
+		$response=$this->sendCommand(SMPP::SUBMIT_CARING,$pdu);
 		$body = unpack("a*msgid",$response->body);
 		return $body['msgid'];
 	}
@@ -585,7 +587,7 @@ class SmppClient
 
 		if (($esmClass & SMPP::ESM_DELIVER_SMSC_RECEIPT) != 0) {
 			$sms = new SmppDeliveryReceipt($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
-			$sms->parseDeliveryReceipt();
+			//$sms->parseDeliveryReceipt();
 		} else {
 			$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
 		}
